@@ -26,6 +26,11 @@ interface IProvider {
 	models?: Record<string, { id: string; name?: string }>;
 }
 
+interface IAgent {
+	name: string;
+	mode?: string;
+}
+
 export class OpenCodeChatModel implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'OpenCode Chat Model',
@@ -121,6 +126,16 @@ export class OpenCodeChatModel implements INodeType {
 				description: 'Select a model (optional, uses default if not specified)',
 			},
 			{
+				displayName: 'Agent',
+				name: 'agent',
+				type: 'options',
+				typeOptions: {
+					loadOptionsMethod: 'getAgents',
+				},
+				default: '',
+				description: 'Select an agent (optional, uses primary agent if not specified)',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
@@ -209,6 +224,54 @@ export class OpenCodeChatModel implements INodeType {
 					return [{ name: '(Default)', value: '' }];
 				}
 			},
+
+			async getAgents(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const credentials = await this.getCredentials('openCodeApi');
+					const baseUrl = credentials.baseUrl as string;
+
+					const response = await this.helpers.request({
+						method: 'GET',
+						url: `${baseUrl}/agent`,
+						auth: {
+							user: credentials.username as string,
+							pass: credentials.password as string,
+						},
+						json: true,
+					});
+
+					const agents = (Array.isArray(response) ? response : []) as IAgent[];
+
+					const options: INodePropertyOptions[] = [
+						{ name: '(Default)', value: '' },
+					];
+
+					// Find all primary agents and put them first
+					const primaryAgents = agents.filter((a) => a.mode === 'primary');
+					const otherAgents = agents.filter((a) => a.mode !== 'primary');
+
+					for (const agent of primaryAgents) {
+						options.push({
+							name: `${agent.name} (Primary)`,
+							value: agent.name,
+							description: 'Primary agent',
+						});
+					}
+
+					for (const agent of otherAgents) {
+						options.push({
+							name: agent.name,
+							value: agent.name,
+							description: agent.mode ? `Mode: ${agent.mode}` : undefined,
+						});
+					}
+
+					return options;
+				} catch (error) {
+					console.error('Error loading agents:', error);
+					return [{ name: '(Default)', value: '' }];
+				}
+			},
 		},
 	};
 
@@ -216,6 +279,7 @@ export class OpenCodeChatModel implements INodeType {
 		const credentials = await this.getCredentials('openCodeApi') as IOpenCodeCredentials;
 		const sessionMode = this.getNodeParameter('sessionMode', itemIndex) as string;
 		const model = this.getNodeParameter('model', itemIndex, '') as string;
+		const agent = this.getNodeParameter('agent', itemIndex, '') as string;
 		const options = this.getNodeParameter('options', itemIndex, {}) as IDataObject;
 		const timeout = (options.timeout as number) ?? 300000;
 
@@ -236,6 +300,7 @@ export class OpenCodeChatModel implements INodeType {
 			password: credentials.password,
 			sessionId,
 			model: model || undefined,
+			agent: agent || undefined,
 			timeout,
 			useTemporarySession,
 			tempSessionTitle,

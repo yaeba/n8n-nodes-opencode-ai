@@ -15,6 +15,7 @@ export interface ChatOpenCodeInput extends BaseChatModelParams {
 	password: string;
 	sessionId?: string;
 	model?: string;
+	agent?: string;
 	timeout?: number;
 	useTemporarySession?: boolean;
 	tempSessionTitle?: string;
@@ -67,6 +68,7 @@ export class ChatOpenCode extends BaseChatModel<ChatOpenCodeCallOptions> {
 	password: string;
 	sessionId?: string;
 	model?: string;
+	agent?: string;
 	timeout: number;
 	useTemporarySession: boolean;
 	tempSessionTitle: string;
@@ -83,6 +85,7 @@ export class ChatOpenCode extends BaseChatModel<ChatOpenCodeCallOptions> {
 		this.password = fields.password;
 		this.sessionId = fields.sessionId;
 		this.model = fields.model;
+		this.agent = fields.agent;
 		this.timeout = fields.timeout ?? 300000;
 		this.useTemporarySession = fields.useTemporarySession ?? false;
 		this.tempSessionTitle = fields.tempSessionTitle ?? 'Temporary Chat Session';
@@ -150,6 +153,7 @@ export class ChatOpenCode extends BaseChatModel<ChatOpenCodeCallOptions> {
 			password: this.password,
 			sessionId: this.sessionId,
 			model: this.model,
+			agent: this.agent,
 			timeout: this.timeout,
 			useTemporarySession: this.useTemporarySession,
 			tempSessionTitle: this.tempSessionTitle,
@@ -276,6 +280,11 @@ If you need to use a tool, respond ONLY with the JSON object. If you don't need 
 			if (this.model && this.model.includes('::')) {
 				const [providerID, modelID] = this.model.split('::');
 				payload.model = { providerID, modelID };
+			}
+
+			// Add agent if specified
+			if (this.agent) {
+				payload.agent = this.agent;
 			}
 
 			// Make API request
